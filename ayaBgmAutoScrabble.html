@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ayaBgmAutoScrabble</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden; /* 隐藏默认滚动条 */
+        }
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: auto; /* 添加滚动条 */	
+			
+        }
+        table {
+            border-collapse: collapse;
+            table-layout: fixed; /* 固定表格布局 */
+            width: 100%;
+            height: 100%;
+        }
+		
+		.zoom-container {
+            position: absolute;
+        }
+        .zoom-container input[type="range"] {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+			z-index:1000;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }		
+    </style>
+</head>
+<body>	
+	<div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+			<h1>欢迎来到冻鳗自动拼字</h1>
+			<p>单击单元格来拼字</p><p>长按或右键来修改单元格</p><p>无法拼字的单元格将变成红色</p><p>重复用词的单元格将变成黄色</p><p>拼字成功的单元格将变成绿色</p><p>右上角滑动来修改单元格大小</p>
+            <p>接下来，输入初始内容！</p>
+            <input type="text" id="userInput" placeholder="保持零也是一种实力">
+            <button onclick="confirmInput()">确定</button>
+        </div>
+    </div>
+
+	<div class="zoom-container">
+        <input type="range" min="10" max="100" step="10" value="50" id="zoom-range">
+        <div class="table-container" id="table-container">
+            <table id="scrabble-table"></table>
+        </div>
+    </div>
+    
+	<div class="container">
+        <table id="scrabbleTable"></table>
+	</div>
+	
+
+    <script src="anilist.js"></script>
+
+    <script>
+	
+	    let scrabbleBody = [
+			['', '保', '持', '零', '也', '是', '一', '种', '实', '力', '', '']
+        ];
+	    // 获取模态框
+        const modal = document.getElementById('myModal');
+        const closeBtn = document.querySelector('.close');
+        const userInput = document.getElementById('userInput');
+
+        // 显示模态框
+        window.onload = function() {
+            modal.style.display = 'block';
+        };
+
+        // 关闭模态框
+        closeBtn.onclick = function() {
+            modal.style.display = 'none';
+        };
+
+        // 确认输入
+        function confirmInput() {
+            const inputText = userInput.value.trim();
+            const defaultText = "保持零也是一种实力";
+            const finalText = inputText || defaultText;
+
+            // 将输入内容转换为二维数组
+            scrabbleBody = [finalText.split('')];
+            //console.log(scrabbleBody);
+
+            // 更新表格内容
+            updateUI();
+
+            // 关闭模态框
+            modal.style.display = 'none';
+        }
+	
+	      // 添加缩放功能
+        document.getElementById('zoom-range').addEventListener('input', function () {
+            const zoomValue = this.value;
+            const tableContainer = document.getElementById('table-container');
+            cellSize = zoomValue;
+			updateUI();
+        });
+	
+
+		/*
+		const anilist = {
+			保:[
+				'保卫萝卜',
+				'萝卜被保卫'
+			], 
+			
+			零:[
+				'偷摸偷摸偷摸偷摸偷摸零，启动',
+				'sans零零七'
+			],
+				
+			力:[
+				'力可丽丝'
+			],
+			
+			u:[
+				'lucy'
+			]
+		};
+*/        
+		let cellSize = 50; // 单元格大小（宽高）
+			// 获取屏幕宽高
+		let screenWidth = window.innerWidth;
+		let screenHeight = window.innerHeight;
+	
+		let rows = Math.ceil(screenHeight / cellSize)  ; // 行数
+		let cols = Math.ceil(screenWidth / cellSize) ; // 列数	
+				
+		
+		function updateUI(){	
+			yellowCell = [-1,-1];
+			// 获取屏幕宽高
+			screenWidth = window.innerWidth;
+			screenHeight = window.innerHeight;
+
+			// 计算每个单元格的大小
+			rows = Math.ceil(screenHeight / cellSize)  ; // 行数
+			cols = Math.ceil(screenWidth / cellSize) ; // 列数	
+		
+			let actualrows = scrabbleBody.length;
+			let testactualRows = 0;
+			for (let i = 0; i < scrabbleBody.length; i++) {
+				let nowrow = scrabbleBody[i].length;
+				if (nowrow > testactualRows) {
+					testactualRows = nowrow;
+				}
+			}
+			let actualcols = testactualRows;
+
+			// 获取表格元素
+			const table = document.getElementById('scrabbleTable');
+			 table.innerHTML = '';
+			// 创建表格内容
+			for (let i = -1 * rows; i < rows + actualrows; i++) {
+				const row = document.createElement('tr');
+				for (let j = -1 * cols; j < cols + actualcols; j++) {
+					const cell = document.createElement('td');
+					// 如果是原数组范围内的单元格，填充数组内容，否则填充空字符串
+					try{
+						cell.textContent = scrabbleBody[i][j];
+					} catch(error) {
+						cell.textContent = '';
+					}
+
+					// 动态设置单元格样式
+					cell.style.border = '1px solid #000';
+					cell.style.textAlign = 'center';
+					cell.style.width = cellSize + 'px';
+					cell.style.height = cellSize + 'px';
+				
+					cell.setAttribute("data-x", i);
+					cell.setAttribute("data-y", j);
+					
+					const fontSize = cellSize / 2; // 字体大小为单元格宽度或高度的一半
+					cell.style.fontSize = `${fontSize}px`;
+
+					row.appendChild(cell);
+				}
+				table.appendChild(row);
+			}
+
+			const container = document.querySelector('.container');
+			
+			container.scrollTop += bodydy * cellSize; // 向下滚动 100 像素
+			container.scrollLeft += bodydx * cellSize; // 向右滚动 50 像素
+			
+			bodydy = 0;
+			bodydx = 0;
+		}
+		
+		let startX, startY;
+
+        function handleTouchStart(event) {
+            startX = event.touches[0].clientX;
+            startY = event.touches[0].clientY;
+        }
+
+        function handleTouchEnd(event) {
+            const endX = event.changedTouches[0].clientX;
+            const endY = event.changedTouches[0].clientY;
+
+            const deltaX = endX - startX;
+            const deltaY = endY - startY;
+
+            // 判断是否为点击事件
+            if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+				event.preventDefault(); // 阻止 click 事件的触发
+				handleAfter(event);
+            }
+        }
+
+        // 获取表格
+        const table = document.getElementById('scrabbleTable');
+
+        table.addEventListener('touchstart', handleTouchStart);
+        //table.addEventListener('touchend', handleTouchEnd);
+		table.addEventListener('click', function(event) {
+			handleAfter(event);
+		});
+		
+		const longPressDuration = 500; // 长按的阈值时间（毫秒）
+
+        let touchStartTimestamp = 0;
+
+        // 监听右键点击事件
+        table.addEventListener('contextmenu', function(event) {
+            event.preventDefault(); // 阻止默认的右键菜单
+            changeChar(event.target);
+        });
+
+        // 监听触摸开始事件
+        table.addEventListener('touchstart', function(event) {
+            touchStartTimestamp = Date.now(); // 记录触摸开始的时间
+        });
+
+        // 监听触摸结束事件
+        table.addEventListener('touchend', function(event) {
+            const touchEndTimestamp = Date.now(); // 记录触摸结束的时间
+            const duration = touchEndTimestamp - touchStartTimestamp; // 计算触摸持续时间
+
+            if (duration >= longPressDuration) {
+				event.preventDefault(); // 阻止 click 事件的触发
+                changeChar(event.target);
+            }else{
+				handleTouchEnd(event);
+			}
+        });
+		
+		function changeChar(cell){
+			
+			if (cell.tagName.toLowerCase() === 'td') {
+                const userInput = prompt("修改单字：", cell.textContent); // 弹出提示框，默认值为当前单元格内容
+                if (userInput !== null) { // 如果用户点击了“确定”
+                    addNewCharToBody(userInput,cell); // 更新单元格内容
+                }
+            }
+		}
+		
+		function addNewCharToBody(newchar,cell){
+			const rowIndex = cell.parentNode.rowIndex;
+            const colIndex = cell.cellIndex;
+			
+			let point = [rowIndex - rows, colIndex - cols];
+			
+			while(point[0] < 0){
+				scrabbleBody = addRowTop(scrabbleBody);
+				point[0] += 1;
+			}
+			while(point[0] >= scrabbleBody.length){
+				scrabbleBody = addRowBottom(scrabbleBody);
+			}
+			while(point[1] < 0){
+				scrabbleBody = addColumnLeft(scrabbleBody);
+				point[1] += 1;
+			}
+			while(point[1] >= scrabbleBody[0].length){
+				scrabbleBody = addColumnRight(scrabbleBody);
+			}
+			
+			scrabbleBody[point[0]][point[1]] = newchar;
+			updateUI();
+		}
+		
+		let usedtext = []; 
+		
+		let yellowCell = [-1,-1];
+		
+		function handleAfter(event){
+		        const cell = event.target;
+                const rowIndex = cell.parentNode.rowIndex;
+                const colIndex = cell.cellIndex;
+                if (cell.tagName.toLowerCase() === 'td') {
+                    const content = cell.textContent.trim();
+                    if (content === '') {
+                        /*const userInput = prompt("请输入内容：");
+                        if (userInput !== null) {
+                            cell.textContent = userInput;
+                        }*/
+						const ayazumi = 'lazy';
+                    } else {
+                        const result = anilist[content];
+                        if (result) {
+							const dirc = Math.round(Math.random())
+							//console.log(dirc);
+							const point = [rowIndex - rows, colIndex - cols];
+							//console.log(point,yellowCell,point === yellowCell);
+							if(point[0] === yellowCell[0] && point[1] === yellowCell[1]){
+								if(!replace(point, content, result, dirc ,true, cell)){
+								//console.log((dirc + 1) % 2);
+									if(!replace(point, content, result, (dirc + 1) % 2 , true, cell)){
+									//console.log(result);
+										addred(cell);
+									}
+								}
+							}else{
+								if(!getGoodText(result,generateRandomArray(result),point,(dirc + 1) % 2,content,true) && !getGoodText(result,generateRandomArray(result),point,dirc,content,true)){
+									addred(cell);
+								}else{
+								//console.log('yellow');
+									if(!replace(point, content, result, dirc ,false, cell)){
+									//console.log((dirc + 1) % 2);
+										if(!replace(point, content, result, (dirc + 1) % 2 , false, cell)){
+										//console.log(result);
+											addyellow(cell);
+											yellowCell = point;
+										}
+									}									
+								}
+							}	
+                        }else{
+							addred(cell);
+						}
+                    }
+                }
+		}	
+		
+		function addred(cell){
+									cell.style.backgroundColor = 'pink'; // 设置单元格背景为粉红色
+									cell.style.transition = 'background-color 0.5s'; // 添加渐变效果（可选）
+
+									// 可选：设置一个定时器，让单元格在一段时间后恢复原样
+									setTimeout(() => {
+										cell.style.backgroundColor = ''; // 恢复默认背景颜色
+									}, 1500); // 1.5秒后恢复		
+		}
+
+		function addyellow(cell){
+									cell.style.backgroundColor = '#FFA07A'; // 设置单元格背景为粉红色
+									cell.style.transition = 'background-color 0.5s'; // 添加渐变效果（可选）
+
+									// 可选：设置一个定时器，让单元格在一段时间后恢复原样
+									setTimeout(() => {
+										cell.style.backgroundColor = ''; // 恢复默认背景颜色
+									}, 1500); // 1.5秒后恢复		
+		}		
+
+		function addgreen(cell){
+									cell.style.backgroundColor = '#34C759'; // 设置单元格背景为粉红色
+									cell.style.transition = 'background-color 0.5s'; // 添加渐变效果（可选）
+
+									// 可选：设置一个定时器，让单元格在一段时间后恢复原样
+									setTimeout(() => {
+										cell.style.backgroundColor = ''; // 恢复默认背景颜色
+									}, 500); // 1.5秒后恢复		
+		}	
+		
+		function getGoodText(list,textIndex,point,dirc,content,isyellow){
+		//console.log(scrabbleBody);
+			for (let i of textIndex) {
+			//console.log(textIndex);
+				const text = list[i];
+				let isMatch = true;
+				let haveBlank = false;
+				//console.log(text,text in usedtext,!isyellow);
+				if ( usedtext.includes(text) && !isyellow){
+					//console.log('yy');
+					continue;
+				}
+				
+				const position = text.indexOf(content);
+				
+				if(dirc === 1){
+				
+					for(j = 0; j<text.length; j++){
+					//console.log(text[j]);
+						try{
+						//console.log(scrabbleBody[j + point[0] - position][point[1]],j);
+								if(scrabbleBody[j + point[0] - position][point[1]] === ""){
+									haveBlank = true;
+								}	
+								
+								if(scrabbleBody[j + point[0] - position][point[1]] !== text[j] &&
+								scrabbleBody[j + point[0] - position][point[1]] !== ''){
+									isMatch = false;
+									break;
+								}
+						
+								
+						}catch(error){
+									haveBlank = true;
+						}
+						
+					}
+					
+					if(isMatch && haveBlank){
+						
+						return text;
+					}
+				}else if(dirc === 0){
+				
+					for(j = 0; j<text.length; j++){
+					//console.log(j);
+						if(scrabbleBody[0].length > [j + point[1] - position] && [j + point[1] - position] >= 0){
+						//console.log(scrabbleBody[point[0]][j + point[1] - position],point[0],i + point[1] - position);
+							if(scrabbleBody[point[0]][j + point[1] - position] === ""){
+									haveBlank = true;
+							}
+						//console.log(text,text[j]);
+
+							//console.log(scrabbleBody[point[0]][j + point[1] - position] , text[j] ,j);
+							if(scrabbleBody[point[0]][j + point[1] - position] !== text[j] &&
+								scrabbleBody[point[0]][j + point[1] - position] !== ''){
+									isMatch = false;
+									break;
+								}
+						}else{
+									haveBlank = true;
+						}
+						
+					}
+					
+					if(isMatch && haveBlank){
+						return text;
+					}
+				}
+			}
+			return false;
+		}
+		
+		function replace(point, content, list, dirc, isyellow, cell){
+		//console.log(point, content, list, dirc,scrabbleBody);
+			const textIndex = generateRandomArray(list);
+			const text = getGoodText(list,textIndex,point,dirc,content,isyellow);
+			if(!text){
+				return false;
+			}else{
+				usedtext.push(text);
+			}
+			const textlength = text.length;
+			const position = text.indexOf(content);
+			if(dirc === 1){
+				
+				while(point[0] < position){
+					scrabbleBody = addRowTop(scrabbleBody);
+					point[0] += 1;
+				}		
+
+				while(scrabbleBody.length  < point[0] + textlength){
+					scrabbleBody = addRowBottom(scrabbleBody);
+				}
+				for(i = 0; i<textlength; i++){
+					scrabbleBody[i + point[0] - position][point[1]] = text[i];
+					/*if(i + point[0] - position !== point[0]){
+						scrabbleBody[i + point[0] - position][point[1] - 1] = '';
+						scrabbleBody[i + point[0] - position][point[1] + 1] = '';
+					}*/
+				}
+				
+			}else if(dirc === 0){
+				
+				while(point[1] < position){
+					scrabbleBody = addColumnLeft(scrabbleBody);
+					point[1] += 1;
+				}		
+
+				while(scrabbleBody[0].length  < point[1] + textlength){
+					scrabbleBody = addColumnRight(scrabbleBody);
+				}
+				for(i = 0; i<textlength; i++){
+					scrabbleBody[point[0]][i + point[1] - position] = text[i];
+					/*if(i + point[1] - position !== point[1]){
+						scrabbleBody[point[0] + 1][i + point[1] - position] = '';
+						scrabbleBody[point[0] - 1][i + point[1] - position] = '';
+					}*/
+				}
+
+			}
+			
+			const tempbodydx = bodydx;
+			const tempbodydy = bodydy;
+
+			updateUI();
+				
+			//console.log(cell);
+			
+			const table = document.getElementById("scrabbleTable");
+
+			//console.log(table.querySelector(`td[data-x="${parseInt(cell.getAttribute("data-x")) + parseInt(tempbodydx)}"][data-y="${parseInt(cell.getAttribute("data-y")) +parseInt(tempbodydy)}"]`));
+
+			addgreen(table.querySelector(`td[data-x="${parseInt(cell.getAttribute("data-x")) + parseInt(tempbodydy)}"][data-y="${parseInt(cell.getAttribute("data-y")) +parseInt(tempbodydx)}"]`));
+			
+			return true;
+			
+		}
+		
+		function generateRandomArray(alist) {
+			const length = alist.length;
+			const list = [];
+			for (let i = 0; i < length; i++) {
+				list.push(i);
+			}
+
+			for (let i = length - 1; i > 0; i--) {
+				const j = Math.floor(Math.random() * (i + 1));
+				[list[i], list[j]] = [list[j], list[i]];
+			}
+
+			return list;
+		}
+
+		
+		function getDirc (cell){// 废弃
+		        const rowIndex = cell.parentNode.rowIndex;
+				const colIndex = cell.cellIndex;
+
+				// 检查上下左右单元格的内容
+				const hasContentAbove = rowIndex > 0 && table.rows[rowIndex - 1].cells[colIndex].textContent.trim() !== '';
+				const hasContentBelow = rowIndex < table.rows.length - 1 && table.rows[rowIndex + 1].cells[colIndex].textContent.trim() !== '';
+				const hasContentLeft = colIndex > 0 && table.rows[rowIndex].cells[colIndex - 1].textContent.trim() !== '';
+				const hasContentRight = colIndex < table.rows[rowIndex].cells.length - 1 && table.rows[rowIndex].cells[colIndex + 1].textContent.trim() !== '';
+
+				// 根据检查结果返回相应的值
+				if (hasContentLeft || hasContentRight) {
+					if (hasContentAbove || hasContentBelow) {
+						return 58; // 上下左右都有内容
+					} else {
+						return 1; // 左右有内容，上下没有内容
+					}
+				} else {
+					if (hasContentAbove || hasContentBelow) {
+						return 0; // 上下有内容，左右没有内容
+					} else {
+						return 0; // 上下左右都没有内容
+					}
+				}
+		}
+		
+		let bodydx = 0;
+		let bodydy = 0;
+		
+		function addColumnRight(arr) {
+			return arr.map(row => {
+				return [...row, '']; // 在每一行的右侧添加一个元素
+			});
+		}
+
+		function addColumnLeft(arr) {
+			bodydx += 1;
+			return arr.map(row => {
+				return ['', ...row]; // 在每一行的左侧添加一个元素
+			});
+		}
+
+		function addRowBottom(arr) {
+			const newRow = new Array(arr[0].length).fill(''); // 创建一行，长度与原数组列数相同
+			return [...arr, newRow]; // 将新行添加到原数组底部
+		}
+
+		function addRowTop(arr) {
+			bodydy += 1;
+			const newRow = new Array(arr[0].length).fill(''); // 创建一行，长度与原数组列数相同
+			return [newRow, ...arr]; // 将新行添加到原数组顶部
+		}
+		
+	    function scrollToCell(row, col) {
+			const container = document.querySelector('.container');
+			const cellSize = 50; // 单元格大小
+			const scrollX = col * cellSize; // 水平滚动距离
+			const scrollY = row * cellSize; // 垂直滚动距离
+
+            container.scrollTo({
+                left: scrollX,
+                top: scrollY,
+                behavior: 'auto' // 可选：设置滚动行为为平滑滚动（'smooth'）
+            });
+        }	
+		
+		updateUI();
+		scrollToCell(rows, cols);
+    </script>
+</body>
+</html>
