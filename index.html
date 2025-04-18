@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ayaBgmAutoScrabble</title>
+    <title>AniScrabble</title>
     <style>
         body {
             margin: 0;
@@ -62,12 +62,28 @@
             text-decoration: none;
             cursor: pointer;
         }		
+		
     </style>
 </head>
 <body>	
+
+    <div id="content">
+        <h1>少女祈祷中</h1>
+        <p>now loading...</p>
+    </div>
+
+    <script>
+        // 页面加载完成后隐藏加载动画
+        window.addEventListener('load', function() {
+            document.getElementById('content').style.display = 'none';
+        });
+    </script>
+
+
 	<div id="myModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
+			
 			<h1>欢迎来到冻鳗自动拼字</h1>
 			<p>单击单元格来拼字</p><p>长按或右键来修改单元格</p><p>无法拼字的单元格将变成红色</p><p>重复用词的单元格将变成黄色</p><p>拼字成功的单元格将变成绿色</p><p>右上角滑动来修改单元格大小</p>
             <p>接下来，输入初始内容！</p>
@@ -234,15 +250,12 @@
             startY = event.touches[0].clientY;
         }
 
-        function handleTouchEnd(event) {
-            const endX = event.changedTouches[0].clientX;
-            const endY = event.changedTouches[0].clientY;
-
-            const deltaX = endX - startX;
-            const deltaY = endY - startY;
-
-            // 判断是否为点击事件
-            if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+        function handleTouchEnd(event , duration) {
+			
+			if (duration >= longPressDuration) {
+				event.preventDefault(); // 阻止 click 事件的触发
+                changeChar(event.target);
+            }else{
 				event.preventDefault(); // 阻止 click 事件的触发
 				handleAfter(event);
             }
@@ -276,12 +289,16 @@
         table.addEventListener('touchend', function(event) {
             const touchEndTimestamp = Date.now(); // 记录触摸结束的时间
             const duration = touchEndTimestamp - touchStartTimestamp; // 计算触摸持续时间
+			
+		    const endX = event.changedTouches[0].clientX;
+            const endY = event.changedTouches[0].clientY;
 
-            if (duration >= longPressDuration) {
-				event.preventDefault(); // 阻止 click 事件的触发
-                changeChar(event.target);
-            }else{
-				handleTouchEnd(event);
+            const deltaX = endX - startX;
+            const deltaY = endY - startY;
+
+            // 判断是否为点击事件
+            if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {	
+				handleTouchEnd(event , duration);
 			}
         });
 		
@@ -394,7 +411,7 @@
 		}		
 
 		function addgreen(cell){
-									cell.style.backgroundColor = '#34C759'; // 设置单元格背景为粉红色
+									cell.style.backgroundColor = '#90EE90'; // 设置单元格背景为粉红色
 									cell.style.transition = 'background-color 0.5s'; // 添加渐变效果（可选）
 
 									// 可选：设置一个定时器，让单元格在一段时间后恢复原样
@@ -535,7 +552,7 @@
 			const table = document.getElementById("scrabbleTable");
 
 			//console.log(table.querySelector(`td[data-x="${parseInt(cell.getAttribute("data-x")) + parseInt(tempbodydx)}"][data-y="${parseInt(cell.getAttribute("data-y")) +parseInt(tempbodydy)}"]`));
-
+			//这代码笑死，反正我现在已经看不懂了
 			addgreen(table.querySelector(`td[data-x="${parseInt(cell.getAttribute("data-x")) + parseInt(tempbodydy)}"][data-y="${parseInt(cell.getAttribute("data-y")) +parseInt(tempbodydx)}"]`));
 			
 			return true;
